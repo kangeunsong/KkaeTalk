@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
 
@@ -7,9 +8,20 @@ class SettingsScreen extends StatelessWidget {
 
   static const routeName = '/settings';
 
+  Future<void> _logout(BuildContext context) async {
+    await AuthService.instance.signOut();
+
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        LoginScreen.routeName,
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Day1: 버튼만 연결
     return Scaffold(
       appBar: AppBar(
         title: const Text('설정'),
@@ -33,15 +45,8 @@ class SettingsScreen extends StatelessWidget {
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () {
-                // Day1: 실제 로그아웃 X, 로그인 화면으로만 이동
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  LoginScreen.routeName,
-                  (route) => false,
-                );
-              },
-              child: const Text('로그아웃 (임시)'),
+              onPressed: () => _logout(context),
+              child: const Text('로그아웃'),
             ),
           ],
         ),
