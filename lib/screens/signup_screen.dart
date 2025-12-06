@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import 'onboarding_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -50,7 +51,11 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (user != null) {
-        // TODO: 나중에 Firestore에 name, 관심 카테고리 등 저장
+        await UserService.instance.createInitialUserProfile(
+          user: user,
+          name: name,
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('회원가입 성공!')),
         );
