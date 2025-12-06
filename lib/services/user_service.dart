@@ -48,4 +48,12 @@ class UserService {
       'question_level': questionLevel,
     });
   }
+
+  Future<UserProfile?> getUserProfile(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    if (!doc.exists || doc.data() == null) {
+      return null;
+    }
+    return UserProfile.fromMap(doc.id, doc.data()!);
+  }
 }
