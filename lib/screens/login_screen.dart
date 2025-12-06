@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
@@ -18,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _autoLogin = false;
 
   @override
   void dispose() {
@@ -48,6 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('autoLogin', _autoLogin);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('로그인 성공!')),
         );
@@ -104,6 +109,18 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _passwordController,
               decoration: const InputDecoration(labelText: '비밀번호'),
               obscureText: true,
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('자동 로그인'),
+              value: _autoLogin,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _autoLogin = value;
+                });
+              },
+              controlAffinity: ListTileControlAffinity.leading,
             ),
             const SizedBox(height: 24),
             SizedBox(
