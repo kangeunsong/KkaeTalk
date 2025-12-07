@@ -8,7 +8,7 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/alarm_edit_screen.dart';
+// import 'screens/alarm_edit_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/history_screen.dart';
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
         SignupScreen.routeName: (context) => const SignupScreen(),
         OnboardingScreen.routeName: (context) => const OnboardingScreen(),
         HomeScreen.routeName: (context) => const HomeScreen(),
-        AlarmEditScreen.routeName: (context) => const AlarmEditScreen(),
+        // AlarmEditScreen.routeName: (context) => const AlarmEditScreen(),
         SettingsScreen.routeName: (context) => const SettingsScreen(),
         ProfileScreen.routeName: (context) => const ProfileScreen(),
         HistoryScreen.routeName: (context) => const HistoryScreen(),
