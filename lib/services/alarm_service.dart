@@ -76,4 +76,25 @@ class AlarmService {
 
     await _userAlarmsRef(user.uid).doc(alarmId).update({'is_active': isActive});
   }
+
+  /// 알람 수정
+  Future<void> updateAlarm({
+    required String alarmId,
+    required String time,
+    required List<int> repeatDays,
+    String topicMode = 'random_interest',
+    String? fixedTopic,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('로그인된 유저가 없습니다.');
+    }
+
+    await _userAlarmsRef(user.uid).doc(alarmId).update({
+      'time': time,
+      'repeat_days': repeatDays,
+      'topic_mode': topicMode,
+      'fixed_topic': topicMode == 'fixed' ? fixedTopic : null,
+    });
+  }
 }

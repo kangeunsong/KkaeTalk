@@ -92,6 +92,9 @@ class HomeScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final alarm = alarms[index];
               return ListTile(
+                onTap: () {
+                  showAlarmEditDialog(context, alarm: alarm);
+                },
                 leading: const Icon(Icons.alarm),
                 title: Text(
                   alarm.time,

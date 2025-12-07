@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import '../services/alarm_service.dart';
+import '../models/alarm.dart';
 
 /// 홈 화면에서 호출할 함수
-Future<void> showAlarmEditDialog(BuildContext context) {
+Future<void> showAlarmEditDialog(
+  BuildContext context, {
+  Alarm? alarm, // null이면 생성, 있으면 수정
+}) {
   return showDialog(
     context: context,
-    barrierDismissible: false, // 바깥 탭해서 닫히지 않게
-    builder: (context) => const AlarmEditDialog(),
+    barrierDismissible: false,
+    builder: (context) => AlarmEditDialog(alarm: alarm),
   );
 }
 
 class AlarmEditDialog extends StatefulWidget {
-  const AlarmEditDialog({super.key});
+  const AlarmEditDialog({super.key, this.alarm});
+
+  final Alarm? alarm; // null => 새 알람, not null => 수정 모드
 
   @override
   State<AlarmEditDialog> createState() => _AlarmEditDialogState();
 }
 
 class _AlarmEditDialogState extends State<AlarmEditDialog> {
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 7, minute: 0);
-  final List<int> _selectedDays = []; // 1~7 (월~일)
-  String _topicMode = 'random_interest'; // "관심 중 랜덤"
+  late TimeOfDay _selectedTime;
+  late List<int> _selectedDays;
+  late String _topicMode;
   String? _fixedTopic;
+
   bool _isSaving = false;
 
   final List<int> _dayValues = [1, 2, 3, 4, 5, 6, 7];
@@ -35,6 +42,39 @@ class _AlarmEditDialogState extends State<AlarmEditDialog> {
     'IT·과학',
     '세계',
   ];
+
+  bool get _isEditMode => widget.alarm != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔹 수정 모드면 기존 값으로 초기화, 아니면 기본값
+    if (widget.alarm != null) {
+      final alarm = widget.alarm!;
+      _selectedTime = _parseTimeOfDay(alarm.time);
+      _selectedDays = List<int>.from(alarm.repeatDays);
+      _topicMode = alarm.topicMode;
+      _fixedTopic = alarm.fixedTopic;
+    } else {
+      _selectedTime = const TimeOfDay(hour: 7, minute: 0);
+      _selectedDays = [];
+      _topicMode = 'random_interest';
+      _fixedTopic = null;
+    }
+  }
+
+  TimeOfDay _parseTimeOfDay(String time) {
+    // "HH:mm" → TimeOfDay
+    try {
+      final parts = time.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (_) {
+      return const TimeOfDay(hour: 7, minute: 0);
+    }
+  }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
@@ -73,16 +113,30 @@ class _AlarmEditDialogState extends State<AlarmEditDialog> {
       _isSaving = true;
     });
 
+    final timeStr = _formatTime();
+
     try {
-      await AlarmService.instance.createAlarm(
-        time: _formatTime(),
-        repeatDays: _selectedDays,
-        topicMode: _topicMode,
-        fixedTopic: _topicMode == 'fixed' ? _fixedTopic : null,
-      );
+      if (_isEditMode) {
+        // 🔹 수정 모드
+        await AlarmService.instance.updateAlarm(
+          alarmId: widget.alarm!.id,
+          time: timeStr,
+          repeatDays: _selectedDays,
+          topicMode: _topicMode,
+          fixedTopic: _fixedTopic,
+        );
+      } else {
+        // 🔹 생성 모드
+        await AlarmService.instance.createAlarm(
+          time: timeStr,
+          repeatDays: _selectedDays,
+          topicMode: _topicMode,
+          fixedTopic: _fixedTopic,
+        );
+      }
 
       if (!mounted) return;
-      Navigator.of(context).pop(); // ✅ 팝업 닫기
+      Navigator.of(context).pop(); // 팝업 닫기
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,13 +153,16 @@ class _AlarmEditDialogState extends State<AlarmEditDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final titleText = _isEditMode ? '알람 수정' : '알람 생성';
+    final actionText = _isEditMode ? '수정' : '생성';
+
     return AlertDialog(
-      title: const Text('알람 생성'),
+      title: Text(titleText),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 시간 선택
+            // 시간
             const Text(
               '알람 시간',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -126,7 +183,7 @@ class _AlarmEditDialogState extends State<AlarmEditDialog> {
             ),
             const SizedBox(height: 16),
 
-            // 요일 선택
+            // 요일
             const Text(
               '반복 요일',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -233,7 +290,7 @@ class _AlarmEditDialogState extends State<AlarmEditDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('생성'),
+              : Text(actionText), // 생성 / 수정
         ),
       ],
     );
