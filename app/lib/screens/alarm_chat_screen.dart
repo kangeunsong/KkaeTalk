@@ -57,6 +57,8 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
       final NewsSummary summary =
           await NewsApiService.instance.fetchNewsSummary(demoNewsUrl);
 
+      if (!mounted) return;
+
       setState(() {
         _newsSummaryText = summary.summary;
         _isLoadingSummary = false;
@@ -71,6 +73,8 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
         );
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoadingSummary = false;
         _summaryError = '뉴스 요약을 가져오지 못했어요. 나중에 다시 시도해 주세요.';
