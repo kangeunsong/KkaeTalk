@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/news_api_service.dart';
 import '../models/news_summary.dart';
+import '../services/news_api_service.dart';
+import '../services/chat_api_service.dart';
 
 class AlarmChatScreen extends StatefulWidget {
   const AlarmChatScreen({super.key});
@@ -20,7 +21,8 @@ class _ChatMessage {
 }
 
 class _AlarmChatScreenState extends State<AlarmChatScreen> {
-  // 상단 뉴스 요약
+  // 상단 뉴스 요약 (전체 객체 + 요약 텍스트)
+  NewsSummary? _newsSummary;
   String? _newsSummaryText;
   bool _isLoadingSummary = false;
   String? _summaryError;
@@ -30,6 +32,12 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
 
   // 텍스트 입력 컨트롤러
   final TextEditingController _inputController = TextEditingController();
+
+  // LLM 요청 중 상태
+  bool _isSending = false;
+
+  // TODO: 나중에 Firestore에서 사용자 설정(questionLevel) 읽어오도록 변경
+  final int _questionLevel = 2;
 
   @override
   void initState() {
@@ -60,6 +68,7 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
       if (!mounted) return;
 
       setState(() {
+        _newsSummary = summary;
         _newsSummaryText = summary.summary;
         _isLoadingSummary = false;
 
@@ -68,7 +77,7 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
           0,
           _ChatMessage(
             isUser: false,
-            text: '오늘의 뉴스 요약이에요:\n${summary.summary}',
+            text: '좋은 아침이에요! 오늘 이런 뉴스가 있었어요:\n\n${summary.summary}',
           ),
         );
       });
@@ -80,17 +89,22 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
         _summaryError = '뉴스 요약을 가져오지 못했어요. 나중에 다시 시도해 주세요.';
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('뉴스 요약 로딩 실패: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('뉴스 요약 로딩 실패: $e')),
+      );
     }
   }
 
-  void _sendUserMessage() {
+  Future<void> _sendUserMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
+    if (_newsSummary == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('뉴스 요약을 아직 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')),
+      );
+      return;
+    }
+    if (_isSending) return;
 
     setState(() {
       // 사용자 메시지 추가
@@ -99,17 +113,45 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
         _ChatMessage(isUser: true, text: text),
       );
       _inputController.clear();
-
-      // Day5: GPT 연동 전이므로, 간단한 더미 응답
-      _messages.insert(
-        0,
-        _ChatMessage(
-          isUser: false,
-          text: '이 부분은 나중에 GPT로 토론을 이어갈 예정이에요 🙂\n'
-              '지금은 입력하신 내용을 잘 받았어요: "$text"',
-        ),
-      );
+      _isSending = true;
     });
+
+    try {
+      // 기존 대화 기록을 ChatTurn 리스트로 변환
+      // (가장 오래된 메시지가 먼저 오도록 뒤집어서 보냄)
+      final history = _messages.reversed.map((m) {
+        return ChatTurn(
+          role: m.isUser ? 'user' : 'assistant',
+          content: m.text,
+        );
+      }).toList();
+
+      // 백엔드 /chat 호출
+      final reply = await ChatApiService.sendChat(
+        summary: _newsSummary!, // 뉴스 요약 객체
+        questionLevel: _questionLevel,
+        history: history,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _messages.insert(
+          0,
+          _ChatMessage(isUser: false, text: reply),
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('대화 중 오류가 발생했습니다: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSending = false;
+      });
+    }
   }
 
   @override
@@ -179,7 +221,7 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
           // 채팅 영역
           Expanded(
             child: ListView.builder(
-              reverse: true, // 가장 최근 메시지가 아래쪽이 아니라 위에서부터 보이게 할지 여부
+              reverse: true, // index 0이 가장 아래에 가도록
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
@@ -233,8 +275,14 @@ class _AlarmChatScreenState extends State<AlarmChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   TextButton(
-                    onPressed: _sendUserMessage,
-                    child: const Text('전송'),
+                    onPressed: _isSending ? null : _sendUserMessage,
+                    child: _isSending
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('전송'),
                   ),
                   const SizedBox(width: 4),
                   TextButton(
