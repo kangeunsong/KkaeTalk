@@ -4,12 +4,14 @@ from typing import List
 from chat_model import generate_reply
 from news_crawler import fetch_naver_news_text
 from summarizer import summarize_korean_text
+from summarizer_textrank import textrank_summarize
 
 app = FastAPI(title="KkaeTalk Backend")
 
 
 class NewsSummaryRequest(BaseModel):
     url: str
+    mode: str = "kobart"  # "kobart" or "textrank"
 
 
 class NewsSummaryResponse(BaseModel):
@@ -43,8 +45,20 @@ def news_summary(req: NewsSummaryRequest):
             detail="기사 본문이 너무 짧거나 비어 있습니다.",
         )
 
-    # 3) 요약
-    summary = summarize_korean_text(article_text)
+    # 3) 요약 방식 분기
+    if req.mode == "textrank":
+        # TextRank 추출 요약
+        summary = textrank_summarize(article_text, top_k=3)
+
+    elif req.mode == "hybrid":
+        # 1단계: TextRank로 중요한 문장 몇 개만 추출
+        extracted = textrank_summarize(article_text, top_k=5)
+        # 2단계: 추출된 문장들을 KoBART로 한 번 더 압축 (생성 요약)
+        summary = summarize_korean_text(extracted)
+
+    else:
+        # KoBART 단일 요약 ("kobart" 또는 기타 값)
+        summary = summarize_korean_text(article_text)
 
     return NewsSummaryResponse(
         url=req.url,
