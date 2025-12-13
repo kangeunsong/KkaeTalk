@@ -44,7 +44,7 @@ def summarize_korean_text(text: str) -> str:
             bos_token_id=model.config.bos_token_id,
             eos_token_id=model.config.eos_token_id,
             max_length=256,   # 요약 최대 길이
-            min_length=64,    # 너무 짧게 안 나오도록
+            min_length=128,    # 너무 짧게 안 나오도록
             num_beams=4,      # 빔 서치
             length_penalty=1.0,
             no_repeat_ngram_size=3,
