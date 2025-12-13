@@ -32,7 +32,8 @@ An AI-powered smart alarm application that **wakes you up through natural conver
 | **Hybrid**   | 2-stage (TextRank + KoBART)      | 6.76s    | 3.92/5.0      |
 
 <br>
-###  Conversation Modes
+
+### Conversation Modes
 
 - Level 1 · Quiet Mode<br>
   → AI doesn't initiate questions
