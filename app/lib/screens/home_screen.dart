@@ -54,6 +54,13 @@ class HomeScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            tooltip: '알람 대화 테스트',
+            onPressed: () {
+              Navigator.pushNamed(context, AlarmChatScreen.routeName);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.pushNamed(context, SettingsScreen.routeName);

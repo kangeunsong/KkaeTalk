@@ -39,6 +39,7 @@ backend/venv/
 backend/**/__pycache__/
 backend/**/*.pyc
 backend/.env
+backend/gemini_api_key.txt
 
 # 안 쓰는 플랫폼
 app/ios/
@@ -47,3 +48,4 @@ app/windows/
 app/linux/
 app/web/
 app/test/
+app/ig/
