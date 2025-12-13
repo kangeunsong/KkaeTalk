@@ -1,0 +1,453 @@
+\documentclass[10pt, conference, compsocconf]{IEEEtran}
+
+\ifCLASSINFOpdf
+\else
+\fi
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{float}  % H 옵션 사용을 위해 추가
+
+
+% use UTF8 encoding
+\usepackage[utf8]{inputenc}
+% use KoTeX package for Korean 
+\usepackage{kotex}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+% correct bad hyphenation here
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+
+\begin{document}
+
+\title{User Data-Based AI Alarm System with News Summarization\\
+and Conversational Interface}
+
+\author{\IEEEauthorblockN{Eun-Song Kang}
+\IEEEauthorblockA{\textit{Computer Science} \\
+Chungbuk National University\\
+Cheongju, South Korea \\
+dmxthd@naver.com}
+\and 
+\IEEEauthorblockN{Young-Seob Jeong{*}}
+\IEEEauthorblockA{\textit{Computer Engineering Department} \\
+Chungbuk National University\\
+Cheongju, South Korea \\
+ysjay@chungbuk.ac.kr}
+}
+
+\maketitle
+
+\begin{abstract}
+본 연구에서는 기존 알람 애플리케이션의 단순한 소리 알림 방식을 넘어,
+한국어 뉴스 요약과 대화형 상호작용을 결합한 자연어처리 기반 알람 시스템을 구현한다.
+네이버 뉴스 기사의 URL을 입력으로 받아,
+TextRank 기반 추출 요약, KoBART 기반 생성 요약,
+그리고 두 방법을 결합한 하이브리드 요약을 수행한다.
+요약 결과를 바탕으로 Gemini API를 활용한 대화형 인터페이스를 구성하여,
+사용자가 뉴스 내용에 대해 다양한 난이도의 설명과 질의응답을 받을 수 있도록 한다.
+실험은 정치, 경제, 사회, 생활/문화, IT/과학, 세계의 6개 섹션에서
+기사 2개씩, 총 12개의 한국어 뉴스 기사에 대해 이루어졌다.
+시스템 성능 평가와 사람 평가(N=3 평가자)를 통해
+세 요약 방식의 특성과 장단점을 비교 분석하였다.
+결과적으로 KoBART는 문장 자연스러움(4.53/5.0)과 전체 품질(4.39/5.0) 측면에서 우수한 성능을 보였고,
+TextRank는 가장 빠른 처리 속도(0.54초)를 제공하였으며,
+하이브리드 방식은 두 방법의 절충적인 성능을 보였다.
+\end{abstract}
+
+\begin{IEEEkeywords}
+뉴스 요약, TextRank, KoBART, 하이브리드 요약, 대화형 인터페이스, 한국어 자연어처리
+\end{IEEEkeywords}
+
+\IEEEpeerreviewmaketitle
+
+
+\section{Introduction}
+
+
+현대의 스마트폰 알람은 대부분 정해진 시간에 소리나 진동만을 제공하는 단순한 구조이다.
+이러한 방식은 사용자가 알람을 무의식적으로 끄고 다시 잠드는 현상을 유발하며,
+반복되는 알람 소리에 익숙해지면서 각성 효과가 점점 감소하는 문제가 있다 \cite{AlarmyJMIR2024}.
+
+본 연구의 동기는 아침에 부모님과 대화를 하면서 자연스럽게 깨어났던 경험에서 출발하였다.
+대화는 단순한 소리 자극과 달리 의미 이해와 응답 생성이라는
+인지적 처리를 요구하므로, 보다 완전한 각성 상태를 유도할 수 있다.
+만약 이러한 대화가 뉴스와 같이 유용한 정보 전달과 결합된다면,
+사용자는 기상과 동시에 최신 정보를 습득할 수 있다.
+
+본 연구에서는 한국어 뉴스 요약과 대화형 상호작용을 결합한
+AI 기반 알람 시스템을 설계하고,
+특히 \textbf{뉴스 요약·대화 모듈을 자연어처리 관점에서 분석}하는 것을 목표로 한다.
+네이버 뉴스 기사를 대상으로 추출 요약(TextRank),
+생성 요약(KoBART), 하이브리드 요약을 구현하고,
+Gemini 기반 대화 모델과 결합하여
+뉴스 이해를 돕는 질의응답 인터페이스를 제공한다.
+
+본 논문의 기여는 다음과 같다.
+\begin{itemize}
+    \item 한국어 뉴스에 대해 TextRank, KoBART, 하이브리드 세 가지 요약 방식을 구현하고,
+    동일 데이터셋에서 시스템 성능 및 사람 평가를 수행하였다.
+    \item 요약 결과를 입력으로 사용하는 Gemini 기반 대화 모델을 구성하고,
+    질문 난이도(레벨 1–3)에 따라 설명 수준을 제어하는 프롬프트 전략을 제안하였다.
+    \item 6개 뉴스 섹션(정치, 경제, 사회, 생활/문화, IT/과학, 세계)에서 수집한
+    12개 기사를 대상으로 요약 품질과 대화 상호작용의 특성을 분석하였다.
+\end{itemize}
+
+이 논문의 구성은 다음과 같다.
+2장에서는 관련 연구와 TextRank/KoBART 아키텍처를 간략히 정리하고,
+3장에서는 제안하는 요약 및 대화 방법을 설명한다.
+4장에서는 실험 설정과 평가 결과를 제시하고,
+5장에서는 결론과 향후 연구 방향을 논의한다.
+
+
+\section{Related Works}
+
+\subsection{Extractive Summarization and TextRank}
+
+추출 요약은 원문에서 중요한 문장을 선택하여 요약을 구성하는 방식이다.
+TextRank \cite{TextRank2004}는 PageRank 아이디어를 응용하여
+문장 간 유사도 그래프 위에서 중요도를 계산하는 대표적인 알고리즘이다.
+각 문장을 노드로, 문장 쌍의 유사도를 간선 가중치로 두고,
+다음과 같은 갱신식을 이용해 중요도를 계산한다.
+
+\begin{equation}
+S(V_i) = (1 - d) + d \sum_{V_j \in In(V_i)} \frac{w_{ji}}{\sum_{V_k \in Out(V_j)} w_{jk}} S(V_j)
+\end{equation}
+
+여기서 $S(V_i)$는 문장 $i$의 점수, $d$는 감쇠 계수(damping factor), $w_{ji}$는 문장 $j$에서 $i$로 가는 유사도 가중치이다.
+
+
+
+
+\subsection{Abstractive Summarization and KoBART}
+
+생성 요약은 새로운 문장을 생성하여 핵심 내용을 압축하는 방식이다.
+BART는 인코더–디코더 구조의 변형된 Transformer 모델로,
+입력 문장을 인코딩한 후 디코더가 요약 문장을 생성한다.
+KoBART는 한국어 데이터로 파인튜닝된 BART 계열 모델로,
+한국어 뉴스 요약 태스크에서 우수한 성능을 보인다 \cite{ModBART2024}.
+
+% ==== KoBART 아키텍처 그림 위치 ====
+% 인코더-디코더 Transformer 구조 간단 도식
+% \begin{figure}[t]
+%   \centering
+%   \includegraphics[width=0.9\linewidth]{fig_kobart_architecture.pdf}
+%   \caption{KoBART 기반 생성 요약의 인코더–디코더 구조 개념도.}
+%   \label{fig:kobart}
+% \end{figure}
+
+\subsection{LLM-based Conversational Agents}
+
+대규모 언어모델(LLM)은 주어진 문맥과 지시(prompt)에 따라
+자연스러운 질의응답과 설명을 생성할 수 있다.
+Gemini, GPT 시리즈 등은 뉴스 요약과 질문 응답을 결합한
+대화형 뉴스 브리핑 시스템 구현에 활용될 수 있다.
+본 연구에서는 Gemini API를 사용하여
+요약 문장을 기반으로 사용자의 follow-up 질문에 답변하는
+대화형 에이전트를 구성하였다.
+
+
+\section{Method}
+
+\subsection{Task Definition and Dataset}
+
+본 연구의 목표는 한국어 뉴스 기사에 대해
+\begin{enumerate}
+    \item 요약 품질이 우수한 요약문을 생성하고,
+    \item 요약을 기반으로 한 질의응답 대화를 지원하는 것
+\end{enumerate}
+이다.
+
+실험에는 네이버 뉴스의 6개 섹션
+(정치, 경제, 사회, 생활/문화, IT/과학, 세계)에서
+기사 2개씩, 총 12개 기사를 사용하였다.
+각 기사는 HTML 크롤링 후 본문만 추출하였으며,
+평균 길이는 약 800자 내외이다.
+
+% ==== 데이터 통계 표 위치 ====
+% \begin{table}[t]
+% \centering
+% \caption{데이터셋 통계 (네이버 뉴스 12개 기사 예시)}
+% \label{tab:dataset}
+% \begin{tabular}{c|c|c}
+% \hline
+% 섹션 & 기사 수 & 평균 본문 길이(자) \\
+% \hline
+% 정치 & 2 &  \\
+% 경제 & 2 &  \\
+% 사회 & 2 &  \\
+% 생활/문화 & 2 &  \\
+% IT/과학 & 2 &  \\
+% 세계 & 2 &  \\
+% \hline
+% 전체 & 12 &  \\
+% \hline
+% \end{tabular}
+% \end{table}
+
+\subsection{Overall Pipeline}
+
+요약 및 대화 파이프라인은 다음과 같다.
+
+\begin{enumerate}
+    \item 입력: 네이버 뉴스 기사 URL.
+    \item 뉴스 크롤링 모듈이 제목 및 본문 텍스트를 추출한다.
+    \item 사용자가 선택한 모드(\texttt{textrank}, \texttt{kobart}, \texttt{hybrid})에 따라
+    대응되는 요약 모델을 호출하여 요약문을 생성한다.
+    \item 생성된 요약문은 알람 앱 상단에 표시되며,
+    동시에 대화 모델의 컨텍스트로 전달된다.
+    \item 사용자가 요약에 대해 질문을 입력하면,
+    요약문·질문·대화 히스토리·질문 레벨이 Gemini API에 전달되어 응답이 생성된다.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\linewidth]{overall_pipeline.png}
+  \caption{뉴스 요약 및 대화형 알람 시스템의 전체 파이프라인}
+  \label{fig:pipeline}
+\end{figure}
+
+
+\subsection{Summarization Models}
+
+\subsubsection{TextRank Summarizer}
+
+TextRank 요약기는 다음 단계로 구현하였다.
+
+\begin{enumerate}
+    \item 정규표현식을 이용해 마침표·물음표·느낌표를 기준으로 문장을 분리한다.
+    \item 각 문장을 형태소 분석 없이 공백 기준 토큰으로 분리한 후,
+    \texttt{TfidfVectorizer}를 사용해 TF-IDF 벡터로 변환한다.
+    \item 문장 벡터 간 코사인 유사도로 유사도 행렬을 구성하고,
+    대각 성분은 0으로 설정한다.
+    \item 유사도 행렬을 가중치 인접 행렬로 간주하여 그래프를 만들고,
+    \texttt{networkx.pagerank}로 각 문장의 중요도를 계산한다.
+    \item 중요도 상위 $k$개의 문장을 원래 순서대로 이어붙여 요약문을 생성한다.
+\end{enumerate}
+
+\subsubsection{KoBART Summarizer}
+
+KoBART 요약기는 Hugging Face에 공개된
+한국어 뉴스 요약용 KoBART 체크포인트를 사용하여 구현하였다.
+입력 기사를 최대 토큰 길이에 맞게 잘라 인코더에 입력하고,
+디코더에서는 \texttt{num\_beams}, \texttt{max\_length} 등
+하이퍼파라미터를 조정하여 요약을 생성한다.
+본 실험에서는 max\_length=256, min\_length=128, 그리고 num\_beams=4와 같이 설정하였다.
+
+\subsubsection{Hybrid Summarizer}
+
+하이브리드 요약기는 TextRank와 KoBART를 결합한다.
+먼저 TextRank로 상위 몇 개 문장을 추출하여 입력 텍스트를 축약한 후,
+이를 KoBART에 입력하여 다시 생성 요약을 수행한다.
+이렇게 하면 긴 기사를 그대로 KoBART에 넣는 것보다
+입력 길이를 줄이면서도 핵심 문맥을 유지할 수 있다.
+
+\subsection{Conversation Model with Gemini}
+
+대화 모델은 요약문과 대화 히스토리를 입력으로 사용하여
+추가 설명과 질의응답을 생성한다.
+백엔드는 다음 정보를 Gemini에 전달한다.
+
+\begin{itemize}
+    \item 뉴스 요약문 (system/context 역할)
+    \item 사용자 질문과 이전 발화들 (chat history)
+    \item 질문 레벨(1, 2, 3): 설명 난이도 제어용 파라미터
+\end{itemize}
+
+프롬프트에는 "레벨 1에서는 중학생 수준의 쉬운 설명, 레벨 3에서는 배경 지식과 추가 논의를 포함한 심화 설명"과 같은 지시를 포함하여
+모델이 적절한 수준으로 응답하도록 유도하였다.
+
+\subsection{Implementation Note (Brief)}
+
+본 연구의 초점은 자연어처리이므로 구현 세부사항은 간단히 언급한다.
+백엔드는 Python 기반 FastAPI 서버로 구현되었으며,
+\texttt{/news-summary}와 \texttt{/chat} 두 개의 주요 엔드포인트를 제공한다.
+클라이언트는 Flutter로 구현된 알람 애플리케이션으로,
+HTTP 요청을 통해 요약과 대화 응답을 받아 표시한다.
+
+
+\section{Experiments and Results}
+
+\subsection{Experimental Setup}
+
+실험은 Windows 환경 CPU에서 FastAPI 서버를 실행하고,
+네이버 뉴스 6개 섹션에서 수집한 12개 기사에 대해 수행하였다.
+각 기사에 대해 세 가지 요약 모드(TextRank, KoBART, Hybrid)로
+요약을 생성하고, 시스템 성능 평가 및 사람 평가를 진행하였다.
+
+시스템 성능 평가에서는 처리 시간(latency), 압축률(compression ratio),
+요약 길이를 측정하였다. 사람 평가는 3명의 평가자가 각 요약에 대해
+내용 충실도(Content Coverage), 문장 자연스러움(Fluency),
+전체 요약 품질(Overall Quality)을 5점 리커트 척도로 평가하였다.
+
+\subsection{System Performance Evaluation}
+
+Table~\ref{tab:system}은 세 요약 방식의 시스템 성능을 비교한 결과이다.
+TextRank는 평균 0.54초로 KoBART(7.65초)나 Hybrid(6.76초)보다 
+약 14배 빠른 처리 속도를 보였다. 이는 TextRank가 사전학습된 
+신경망 모델을 사용하지 않고 그래프 기반 알고리즘만으로 
+중요 문장을 선택하기 때문이다.
+
+압축률 측면에서는 TextRank가 0.72로 원문의 약 72\%를 유지하여
+가장 낮은 압축을 수행하였고, KoBART(0.45)와 Hybrid(0.43)는 
+절반 이하로 압축하였다. 이는 KoBART가 새로운 문장을 생성하면서
+불필요한 세부사항을 생략하기 때문으로 분석된다.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|c|c|c}
+\hline
+Mode & Latency (sec) & Compression & Avg. Length \\
+\hline
+TextRank & 0.54 $\pm$ 0.89 & 0.72 & 751 \\
+KoBART & 7.65 $\pm$ 1.46 & 0.45 & 352 \\
+Hybrid & 6.76 $\pm$ 1.61 & 0.43 & 331 \\
+\hline
+\end{tabular}
+\caption{System Performance Evaluation Results (12 articles average)}
+\label{tab:system}
+\end{table}
+
+Figure~\ref{fig:performance}는 이러한 차이를 시각적으로 보여준다.
+카테고리별 분석 결과(Table~\ref{tab:category}), 정치 섹션에서 
+TextRank의 처리 시간이 다른 섹션 대비 상대적으로 길었는데(1.75초), 
+이는 정치 기사의 평균 길이가 더 길고 문장 구조가 복잡했기 
+때문으로 분석된다.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|c|c|c}
+\hline
+Category & TextRank & KoBART & Hybrid \\
+\hline
+정치 & 1.75 & 5.99 & 5.33 \\
+경제 & 0.27 & 9.44 & 6.30 \\
+사회 & 0.38 & 6.90 & 6.47 \\
+생활/문화 & 0.33 & 8.06 & 8.03 \\
+IT/과학 & 0.27 & 7.82 & 7.17 \\
+세계 & 0.24 & 7.66 & 7.23 \\
+\hline
+\end{tabular}
+\caption{Processing Time by News Category (seconds)}
+\label{tab:category}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\linewidth]{system_performance.png}
+  \caption{모드별 시스템 성능 비교: 처리 시간과 압축률}
+  \label{fig:performance}
+\end{figure}
+
+\subsection{Human Evaluation}
+
+3명의 평가자를 대상으로 12개 기사에 대한 세 가지 요약 방식을 
+블라인드 평가하였다. 각 평가자는 동일한 기사에 대한 
+세 가지 요약을 무작위로 섞인 순서(A/B/C 라벨)로 제공받아
+내용 충실도, 문장 자연스러움, 전체 요약 품질을 
+5점 리커트 척도로 평가하였다.
+
+Table~\ref{tab:human}에서 보듯이 KoBART가 세 항목 모두에서 
+가장 높은 점수를 받았다. 특히 자연스러움(4.53 $\pm$ 0.51)에서 
+다른 방식들보다 현저히 우수한 평가를 받았으며, 
+이는 KoBART가 새로운 문장을 유창하게 생성하는 능력이 
+뛰어남을 보여준다.
+
+TextRank는 내용 충실도(3.64 $\pm$ 0.59)에서는 중간 수준의 
+평가를 받았으나, 자연스러움(2.42 $\pm$ 0.73)에서는 낮은 점수를 
+받았다. 평가자들은 "원문의 문장을 그대로 사용해 정확하지만 
+문장 간 연결이 어색하다", "갑자기 주제가 바뀌는 느낌"이라는 
+의견을 제시하였다. 이는 TextRank가 원문에서 독립적으로 
+중요도가 높은 문장들을 선택하지만, 이들 간의 맥락적 
+연결성을 고려하지 않기 때문으로 분석된다.
+
+Hybrid 방식은 세 항목 모두에서 중간 수준의 평가를 받았다
+(내용 충실도 3.92, 자연스러움 3.50, 전체 품질 3.92).
+일부 평가자는 "TextRank의 정확성과 KoBART의 자연스러움을
+적절히 조합했다"고 평가하였으나, 다른 평가자는 
+"때때로 중요한 정보가 누락된다"는 한계를 지적하였다.
+
+평가자 간 표준편차가 0.4-0.7 범위로 비교적 낮아, 
+평가 결과의 일관성이 높았음을 확인할 수 있다.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{l|c|c|c}
+\hline
+Mode & Coverage & Fluency & Quality \\
+\hline
+TextRank & 3.64 $\pm$ 0.59 & 2.42 $\pm$ 0.73 & 3.08 $\pm$ 0.60 \\
+KoBART & 4.22 $\pm$ 0.59 & 4.53 $\pm$ 0.51 & 4.39 $\pm$ 0.49 \\
+Hybrid & 3.92 $\pm$ 0.44 & 3.50 $\pm$ 0.61 & 3.92 $\pm$ 0.60 \\
+\hline
+\end{tabular}
+\caption{Human Evaluation Results (5-point Likert scale, N=3 evaluators $\times$ 12 articles)}
+\label{tab:human}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{human_eval_chart.png}
+  \caption{사람 평가 결과: 모드별 비교}
+  \label{fig:human}
+\end{figure}
+
+\subsection{Qualitative Analysis}
+
+정성적 분석에서는 각 요약 방식의 예시를 비교하였다.
+예를 들어 KoBART는 "273개 기업 중 134개사의 실적이 하향 조정되었다"와 같은
+핵심 정보를 자연스럽게 서술하는 반면,
+TextRank는 원문에서 가져온 문장이 그대로 이어져
+연결이 약간 어색한 사례가 있었다.
+하이브리드 방식은 TextRank로 압축된 입력에 기반해 KoBART가 문장을 생성하므로,
+핵심 문장을 유지하면서도 자연스러운 표현을 일부 회복하는 경향을 보였다.
+
+
+\section{Conclusion and Future Work}
+
+본 논문에서는 한국어 뉴스 기사에 대한 세 가지 요약 방식
+(TextRank, KoBART, Hybrid)을 구현하고,
+이를 Gemini 기반 대화형 인터페이스와 결합한
+AI 알람 시스템을 구성하였다.
+네이버 뉴스 12개 기사를 대상으로 시스템 성능 및 사람 평가를 수행한 결과,
+KoBART는 자연스러운 문장과 높은 내용 충실도를 보여
+전반적인 요약 품질이 가장 우수하였고(전체 품질 4.39/5.0),
+TextRank는 처리 속도 측면에서 압도적인 장점을 가졌다(0.54초).
+하이브리드 방식은 두 방법의 절충적인 성능을 보이며,
+환경과 요구사항에 따라 유용한 대안이 될 수 있음을 확인하였다.
+
+본 연구의 결과는 요약 방식 선택 시 고려해야 할 
+명확한 트레이드오프를 보여준다. 빠른 응답이 중요한 
+실시간 알람 시나리오에서는 TextRank의 0.54초 처리 시간이 
+큰 장점이지만, 품질이 더 중요한 뉴스레터나 브리핑에서는 
+KoBART의 우수한 자연스러움(4.53/5.0)이 추가 처리 시간을 
+정당화한다.
+
+향후 연구에서는 다음과 같은 방향을 고려한다.
+\begin{itemize}
+    \item 한국어 STT/TTS를 연동하여 실제 음성 기반 알람 및 음성 대화를 지원한다.
+    \item 더 큰 규모의 뉴스 데이터셋과 평가자를 대상으로
+    ROUGE, BERTScore 등의 추가 자동 지표를 도입하여 평가를 확장한다.
+    \item 모델 양자화, 캐싱 등의 최적화 기법을 통해 KoBART의 
+    처리 속도를 개선하여 품질과 속도를 모두 만족시키는 방안을 모색한다.
+    \item 사용자 관심 카테고리와 시간대에 따라
+    뉴스 선택 및 요약 방식을 자동으로 조정하는 개인화 전략을 탐구한다.
+\end{itemize}
+
+본 연구는 자연어처리 과목에서 배운 문서 요약 및 LLM 기반 대화 기술을
+실제 애플리케이션 형태로 통합한 사례로서,
+알람이라는 일상적인 기능을 정보 제공과 인지적 각성을 동시에 지원하는
+지능형 인터페이스로 확장할 수 있음을 보여준다.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
